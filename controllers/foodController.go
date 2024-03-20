@@ -7,6 +7,7 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
+	"log"
 	"net/http"
 	"restaurant/database"
 	"restaurant/models"
@@ -34,7 +35,21 @@ func GetFood() gin.HandlerFunc {
 }
 func GetFoods() gin.HandlerFunc {
 	return func(c *gin.Context) {
+		var ctx, cancel = context.WithTimeout(context.Background(), 100*time.Second)
+		defer cancel()
 
+		result, err := foodCollection.Find(context.TODO(), bson.M{})
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+
+		var allFoods []bson.M
+		if err := result.All(ctx, &allFoods); err != nil {
+			log.Fatal(err)
+		}
+
+		c.JSON(http.StatusOK, allFoods)
 	}
 }
 func UpdateFood() gin.HandlerFunc {
@@ -65,8 +80,8 @@ func CreateFood() gin.HandlerFunc {
 			return
 		}
 
-		food.Created_at, _ = time.Parse(time.RFC3339, time.Now()).Format(time.RFC3339)
-		food.Updated_at, _ = time.Parse(time.RFC3339, time.Now()).Format(time.RFC3339)
+		food.Created_at, _ = time.Parse(time.RFC3339, time.Now().Format(time.RFC3339))
+		food.Updated_at, _ = time.Parse(time.RFC3339, time.Now().Format(time.RFC3339))
 		food.ID = primitive.NewObjectID()
 		food.FoodId = food.ID.Hex()
 		num := toFixed(*food.Price, 2)
